@@ -1,4 +1,7 @@
 /* House 3D card for Home Assistant: isometric house, scenes by time/season, lamp glow, weather. v1 */
+let LANG = 'ru';
+const EN = {"Торшер": "Floor lamp", "Бохо": "Boho lamp", "Гирлянда": "String lights", "Зима": "Winter", "Весна": "Spring", "Лето": "Summer", "Осень": "Autumn", "Рассвет": "Dawn", "День": "Day", "Закат": "Sunset", "Ночь": "Night", "Солнечно": "Sunny", "Облачно": "Cloudy", "Дождь": "Rain", "Ветер": "Wind", "Снег": "Snow", "Свет": "Light", "Устройства": "Devices", "Температура": "Temperature", "Предпросмотр": "Preview", "Авто": "Auto", "Время суток": "Time of day", "Сезон": "Season", "Погода": "Weather", "Кто дома": "Who is home", "Оба": "Both", "Он": "He", "Она": "She", "Никого": "Nobody", "охлаждение": "cooling", "нагрев": "heating", "ожидание": "idle", "выкл": "off", "вентилятор": "fan", "Улица": "Outside", "Выкл": "Off", "Тепло": "Heat", "Холод": "Cool", "Вкл": "On", "Термостат · гостиная": "Thermostat · living room", "Сейчас в доме": "Inside now", "на улице": "outside", "Режим": "Mode", "Режим дома": "House mode", "Никого нет": "Away", "Дома": "Home", "Сон": "Sleep", "Автопилот": "Autopilot", "При включённом автопилоте автоматизации сами меняют уставку по режиму дома.": "With autopilot on, automations adjust the setpoint by house mode.", "Автоматизации": "Automations", "Готово": "Done", "ч": "h", "мин": "min", "Открыть входную дверь?": "Unlock the front door?", "Замок сейчас закрыт.": "The lock is currently locked.", "Отмена": "Cancel", "Открыть": "Unlock", "ТВ": "TV", "включён": "on", "выключен": "off", "мороз.": "freezer", "дверца!": "door open!", "ящик!": "drawer open!", "Стиралка": "Washer", "Сушилка": "Dryer", "ещё": "left", "работает": "running", "пауза": "paused", "свободна": "idle", "Пылесос": "Vacuum", "на базе": "docked", "уборка": "cleaning", "едет на базу": "returning", "ожидает": "waiting", "ошибка": "error", "Входная дверь": "Front door", "закрыта": "locked", "ОТКРЫТА · нажми, чтобы закрыть": "UNLOCKED · tap to lock"};
+const T = (s) => (LANG === 'en' && EN[s]) || s;
 const FR_W = 2400, FR_H = 1851;
 const DEFAULT_BASE = '/local/house3d/';
 const VER = '3';
@@ -118,7 +121,7 @@ canvas.glow { mix-blend-mode:screen; }
 
 class House3DCard extends HTMLElement {
   constructor() { super(); this.attachShadow({ mode: 'open' }); this._mode = 'light'; this._ov = this._loadOv(); this._lit = {}; this._t0 = performance.now(); this._cur = null; this._slot = 0; }
-  setConfig(c) { this._config = c || {}; this._base = (c && c.base) || DEFAULT_BASE; this._build(); }
+  setConfig(c) { this._config = c || {}; this._base = (c && c.base) || DEFAULT_BASE; LANG = (c && c.lang) || 'ru'; if (LANG === 'en') { for (const o of [SEASONS, TIMES, WEATHERS]) for (const k in o) o[k] = T(o[k]); Object.values(LAMPS).forEach(L => L.name = T(L.name)); MODES.forEach(m => m[1] = T(m[1])); } this._build(); }
   getCardSize() { return 8; }
   set hass(h) { this._hass = h; if (this._built) this._update(); }
   _loadOv() { try { return JSON.parse(localStorage.getItem('house3d_ov') || '{}'); } catch (e) { return {}; } }
@@ -144,7 +147,7 @@ class House3DCard extends HTMLElement {
       <div class="status" id="status"></div>
       <div class="menu" id="menu"></div>
       <div class="modal" id="modal"><div class="dlg" id="dlg"></div></div>
-      <button class="gear" id="gear" title="Предпросмотр">⚙</button>
+      <button class="gear" id="gear" title="${T('Предпросмотр')}">⚙</button>
     </div></div>`;
     const tabs = r.getElementById('tabs');
     MODES.forEach(([k, label, icon]) => {
@@ -162,12 +165,12 @@ class House3DCard extends HTMLElement {
       hs.appendChild(b);
     });
     const menu = r.getElementById('menu');
-    const opt = (o, extra) => `<option value="">Авто</option>` + Object.entries(o).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
-    menu.innerHTML = `<b>Предпросмотр</b>
-      <label>Время суток<select data-o="time">${opt(TIMES)}</select></label>
-      <label>Сезон<select data-o="season">${opt(SEASONS)}</select></label>
-      <label>Погода<select data-o="weather">${opt(WEATHERS)}</select></label>
-      <label>Кто дома<select data-o="home">${opt({ both: "Оба", a: "Он", b: "Она", none: "Никого" })}</select></label>`;
+    const opt = (o, extra) => `<option value="">${T('Авто')}</option>` + Object.entries(o).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+    menu.innerHTML = `<b>${T('Предпросмотр')}</b>
+      <label>${T('Время суток')}<select data-o="time">${opt(TIMES)}</select></label>
+      <label>${T('Сезон')}<select data-o="season">${opt(SEASONS)}</select></label>
+      <label>${T('Погода')}<select data-o="weather">${opt(WEATHERS)}</select></label>
+      <label>${T('Кто дома')}<select data-o="home">${opt({ both: T("Оба"), a: T("Он"), b: T("Она"), none: T("Никого") })}</select></label>`;
     menu.querySelectorAll('select').forEach(s => { s.value = this._ov[s.dataset.o] || ''; s.onchange = () => { this._ov[s.dataset.o] = s.value; this._saveOv(); this._update(true); }; });
     r.getElementById('gear').onclick = () => menu.classList.toggle('open');
     this._buildDevices(); this._buildTemp();
@@ -265,14 +268,14 @@ class House3DCard extends HTMLElement {
     const c = this._st('climate.thermostat'); if (!c) return;
     const a = c.attributes || {}, act = a.hvac_action, mode = c.state;
     const cur = a.current_temperature ?? this._st('sensor.thermostat_indoor_temperature')?.state;
-    const names = { cooling: 'охлаждение', heating: 'нагрев', idle: 'ожидание', off: 'выкл', fan: 'вентилятор' };
+    const names = { cooling: T('охлаждение'), heating: T('нагрев'), idle: T('ожидание'), off: T('выкл'), fan: T('вентилятор') };
     const sp = mode === 'off' ? '' : ` → ${Math.round(a.temperature)}°`;
     const d = this._dev('thm');
-    this._setDev('thm', 'mdi:thermostat', `${Math.round(cur)}°`, `${sp} · ${mode === 'off' ? 'выкл' : (names[act] || act || '')}`.replace(/^ · /, ''), act === 'cooling' || act === 'heating' ? 'act' : '');
+    this._setDev('thm', 'mdi:thermostat', `${Math.round(cur)}°`, `${sp} · ${mode === 'off' ? T('выкл') : (names[act] || act || '')}`.replace(/^ · /, ''), act === 'cooling' || act === 'heating' ? 'act' : '');
     d.classList.toggle('heat', act === 'heating'); d.querySelector('.t').classList.add('big');
     const o = this._st('sensor.thermostat_outdoor_temperature')?.state, w = this._st('weather.forecast_home')?.state;
     const wi = { sunny: 'mdi:weather-sunny', 'clear-night': 'mdi:weather-night', cloudy: 'mdi:weather-cloudy', partlycloudy: 'mdi:weather-partly-cloudy', rainy: 'mdi:weather-rainy', pouring: 'mdi:weather-pouring', snowy: 'mdi:weather-snowy', windy: 'mdi:weather-windy', fog: 'mdi:weather-fog', lightning: 'mdi:weather-lightning', 'lightning-rainy': 'mdi:weather-lightning-rainy' };
-    this._setDev('out', wi[w] || 'mdi:thermometer', 'Улица', o != null && !isNaN(o) ? `${Math.round(o)}°` : '—', '');
+    this._setDev('out', wi[w] || 'mdi:thermometer', T('Улица'), o != null && !isNaN(o) ? `${Math.round(o)}°` : '—', '');
     if (this.shadowRoot.getElementById('modal').dataset.k === 'thermo' && this.shadowRoot.getElementById('modal').classList.contains('open')) this._thermoRender();
   }
   _thermoDlg() {
@@ -281,16 +284,16 @@ class House3DCard extends HTMLElement {
   _thermoRender() {
     const r = this.shadowRoot, dlg = r.getElementById('dlg'), c = this._st('climate.thermostat'); if (!c) return;
     const a = c.attributes, sit = this._st('input_select.thermo_situation'), au = this._st('input_boolean.thermo_auto');
-    const modes = { off: 'Выкл', heat: 'Тепло', cool: 'Холод' };
+    const modes = { off: T('Выкл'), heat: T('Тепло'), cool: T('Холод') };
     const admin = this._hass?.user?.is_admin;
     dlg.className = 'dlg t';
-    dlg.innerHTML = `<h3>Термостат · гостиная</h3>
+    dlg.innerHTML = `<h3>${T('Термостат · гостиная')}</h3>
       <div class="sp"><button id="dn">−</button><b>${c.state === 'off' ? '—' : Math.round(a.temperature) + '°'}</b><button id="up">+</button></div>
-      <div class="cur">Сейчас в доме ${Math.round(a.current_temperature)}° · на улице ${Math.round(this._st('sensor.thermostat_outdoor_temperature')?.state)}°</div>
-      <div class="lab">Режим</div><div class="seg">${(a.hvac_modes || []).map(k => `<button data-m="${k}" class="${k === c.state ? 'on ' + (k === 'cool' ? 'cool' : '') : ''}">${modes[k] || k}</button>`).join('')}</div>
-      ${sit ? `<div class="lab">Режим дома</div><div class="seg">${sit.attributes.options.map(o => `<button data-s="${o}" class="${o === sit.state ? 'on' : ''}">${o}</button>`).join('')}</div>` : ''}
-      ${au ? `<div class="sw"><span>Автопилот</span><button id="au" class="${au.state === 'on' ? 'ok' : 'no'}">${au.state === 'on' ? 'Вкл' : 'Выкл'}</button></div><div class="note">При включённом автопилоте автоматизации сами меняют уставку по режиму дома.</div>` : ''}
-      <div class="row">${admin && this._config.auto_path ? '<button class="no" id="auto">Автоматизации</button>' : ''}<button class="ok" id="cl">Готово</button></div>`;
+      <div class="cur">${T('Сейчас в доме')} ${Math.round(a.current_temperature)}° · ${T('на улице')} ${Math.round(this._st('sensor.thermostat_outdoor_temperature')?.state)}°</div>
+      <div class="lab">${T('Режим')}</div><div class="seg">${(a.hvac_modes || []).map(k => `<button data-m="${k}" class="${k === c.state ? 'on ' + (k === 'cool' ? 'cool' : '') : ''}">${modes[k] || k}</button>`).join('')}</div>
+      ${sit ? `<div class="lab">${T('Режим дома')}</div><div class="seg">${sit.attributes.options.map(o => `<button data-s="${o}" class="${o === sit.state ? 'on' : ''}">${T(o)}</button>`).join('')}</div>` : ''}
+      ${au ? `<div class="sw"><span>${T('Автопилот')}</span><button id="au" class="${au.state === 'on' ? 'ok' : 'no'}">${au.state === 'on' ? T('Вкл') : T('Выкл')}</button></div><div class="note">${T('При включённом автопилоте автоматизации сами меняют уставку по режиму дома.')}</div>` : ''}
+      <div class="row">${admin && this._config.auto_path ? `<button class="no" id="auto">${T('Автоматизации')}</button>` : ''}<button class="ok" id="cl">${T('Готово')}</button></div>`;
     const sp = (d) => { const v = Math.max(a.min_temp || 50, Math.min(a.max_temp || 90, Math.round(a.temperature) + d)); this._hass.callService('climate', 'set_temperature', { entity_id: 'climate.thermostat', temperature: v }); };
     dlg.querySelector('#dn').onclick = () => sp(-1); dlg.querySelector('#up').onclick = () => sp(1);
     dlg.querySelectorAll('[data-m]').forEach(b => b.onclick = () => this._hass.callService('climate', 'set_hvac_mode', { entity_id: 'climate.thermostat', hvac_mode: b.dataset.m }));
@@ -318,7 +321,7 @@ class House3DCard extends HTMLElement {
     const d = this._dev(k); if (!d) return; d.querySelector('ha-icon').setAttribute('icon', icon); d.querySelector('.t').textContent = t; d.querySelector('.sub').textContent = sub || '';
     d.classList.toggle('act', cls === 'act'); d.classList.toggle('warn', cls === 'warn');
   }
-  _fmtMin(iso) { const ms = new Date(iso) - Date.now(); if (!(ms > 0)) return ''; const m = Math.ceil(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} ч ${m % 60} мин` : `${m} мин`; }
+  _fmtMin(iso) { const ms = new Date(iso) - Date.now(); if (!(ms > 0)) return ''; const m = Math.ceil(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} ${T('ч')} ${m % 60} ${T('мин')}` : `${m} ${T('мин')}`; }
   _vacToggle() {
     const v = this._st('vacuum.robot_vacuum'); if (!v) return;
     const busy = ['cleaning', 'returning'].includes(v.state);
@@ -329,7 +332,7 @@ class House3DCard extends HTMLElement {
     if (l.state === 'unlocked') { this._hass.callService('lock', 'lock', { entity_id: l.entity_id }); return; }
     if (l.state === 'locked') {
       const dlg = this.shadowRoot.getElementById('dlg'); dlg.className = 'dlg'; this.shadowRoot.getElementById('modal').dataset.k = 'lock';
-      dlg.innerHTML = '<h3>Открыть входную дверь?</h3><div>Замок сейчас закрыт.</div><div class="row"><button class="no" id="no">Отмена</button><button class="ok" id="ok">Открыть</button></div>';
+      dlg.innerHTML = `<h3>${T('Открыть входную дверь?')}</h3><div>${T('Замок сейчас закрыт.')}</div><div class="row"><button class="no" id="no">${T('Отмена')}</button><button class="ok" id="ok">${T('Открыть')}</button></div>`;
       dlg.querySelector('#no').onclick = () => this._closeModal();
       dlg.querySelector('#ok').onclick = () => { this._hass.callService('lock', 'unlock', { entity_id: l.entity_id }); this._closeModal(); };
       this.shadowRoot.getElementById('modal').classList.add('open');
@@ -341,27 +344,27 @@ class House3DCard extends HTMLElement {
     // TV
     const tvOn = !['off', 'unavailable', 'unknown', undefined].includes(this._st('media_player.living_room_tv')?.state);
     this._tvOn = tvOn; r.getElementById('tv').classList.toggle('on', tvOn);
-    this._setDev('tv', tvOn ? 'mdi:television-play' : 'mdi:television-off', 'ТВ', tvOn ? 'включён' : 'выключен', tvOn ? 'act' : '');
+    this._setDev('tv', tvOn ? 'mdi:television-play' : 'mdi:television-off', T('ТВ'), tvOn ? T('включён') : T('выключен'), tvOn ? 'act' : '');
     // fridge
     const fd = this._st('binary_sensor.kitchen_refrigerator_fridge_door')?.state === 'on', zd = this._st('binary_sensor.kitchen_refrigerator_freezer_door')?.state === 'on';
     const ft = this._st('sensor.kitchen_refrigerator_fridge_temperature')?.state, zt = this._st('sensor.kitchen_refrigerator_freezer_temperature')?.state;
     const P = { p_fridge: [fd, 'fridge_open', 706, 195, 223, 180], p_freezer: [zd, 'freezer_open', 790, 291, 170, 155] };
     Object.entries(P).forEach(([id, [on, nm, x, y, w, h]]) => { const im = r.getElementById(id); const src = `${this._base}${nm}_${t}.webp?v=${VER}`; if (im.dataset.src !== src) { im.dataset.src = src; im.src = src; im.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`; } im.classList.toggle('on', on); });
-    this._setDev('fridge', fd || zd ? 'mdi:fridge-alert' : 'mdi:fridge', `${ft ?? '—'}°`, `мороз. ${zt ?? '—'}°` + (fd ? ' · дверца!' : zd ? ' · ящик!' : ''), fd || zd ? 'warn' : '');
+    this._setDev('fridge', fd || zd ? 'mdi:fridge-alert' : 'mdi:fridge', `${ft ?? '—'}°`, `${T('мороз.')} ${zt ?? '—'}°` + (fd ? ' · ' + T('дверца!') : zd ? ' · ' + T('ящик!') : ''), fd || zd ? 'warn' : '');
     // washer / dryer
-    [['washer', 'mdi:washing-machine', 'Стиралка'], ['dryer', 'mdi:tumble-dryer', 'Сушилка']].forEach(([k, ic, nm]) => {
+    [['washer', 'mdi:washing-machine', T('Стиралка')], ['dryer', 'mdi:tumble-dryer', T('Сушилка')]].forEach(([k, ic, nm]) => {
       const m = this._st(`sensor.garage_${k}_machine_state`)?.state, ct = this._st(`sensor.garage_${k}_completion_time`)?.state;
       const run = m === 'run'; const left = run ? this._fmtMin(ct) : '';
-      this._setDev(k, ic, nm, run ? (left ? `ещё ${left}` : 'работает') : m === 'pause' ? 'пауза' : 'свободна', run ? 'act' : '');
+      this._setDev(k, ic, nm, run ? (left ? (LANG === 'en' ? `${left} left` : `ещё ${left}`) : T('работает')) : m === 'pause' ? T('пауза') : T('свободна'), run ? 'act' : '');
     });
     // vacuum
-    const v = this._st('vacuum.robot_vacuum')?.state; const names = { docked: 'на базе', cleaning: 'уборка', returning: 'едет на базу', paused: 'пауза', idle: 'ожидает', error: 'ошибка' };
+    const v = this._st('vacuum.robot_vacuum')?.state; const names = { docked: T('на базе'), cleaning: T('уборка'), returning: T('едет на базу'), paused: T('пауза'), idle: T('ожидает'), error: T('ошибка') };
     const busy = v === 'cleaning' || v === 'returning'; this._vac = v;
-    this._setDev('vac', 'mdi:robot-vacuum', 'Пылесос', names[v] || v || '—', busy ? 'act' : v === 'error' ? 'warn' : '');
+    this._setDev('vac', 'mdi:robot-vacuum', T('Пылесос'), names[v] || v || '—', busy ? 'act' : v === 'error' ? 'warn' : '');
     this._dev('vac').querySelector('.btn ha-icon').setAttribute('icon', busy ? 'mdi:stop' : 'mdi:play');
     // lock
     const l = this._st('lock.front_door_lock')?.state;
-    this._setDev('lock', l === 'locked' ? 'mdi:lock' : l === 'unlocked' ? 'mdi:lock-open-variant' : 'mdi:lock-alert', 'Входная дверь', l === 'locked' ? 'закрыта' : l === 'unlocked' ? 'ОТКРЫТА · нажми, чтобы закрыть' : (l || '—'), l === 'unlocked' || l === 'jammed' ? 'warn' : '');
+    this._setDev('lock', l === 'locked' ? 'mdi:lock' : l === 'unlocked' ? 'mdi:lock-open-variant' : 'mdi:lock-alert', T('Входная дверь'), l === 'locked' ? T('закрыта') : l === 'unlocked' ? T('ОТКРЫТА · нажми, чтобы закрыть') : (l || '—'), l === 'unlocked' || l === 'jammed' ? 'warn' : '');
   }
   _vacFrame(t) {
     const el = this.shadowRoot.getElementById('vac'); if (!el) return;

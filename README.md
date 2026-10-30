@@ -4,7 +4,9 @@ A stylish **3D isometric floor plan** dashboard card for Home Assistant. The hou
 
 ![night scene](docs/screenshot-night.png)
 
-**▶ Live demo: https://skazo4nik.github.io/ha-isometric-house-card/** (no Home Assistant needed)
+**▶ Live demo (English): https://skazo4nik.github.io/ha-isometric-house-card/en/**  
+**▶ Демо на русском: https://skazo4nik.github.io/ha-isometric-house-card/**  
+(no Home Assistant needed)
 
 Source of the demo: `demo/` — the page ships a tiny in-browser Home Assistant emulator, so every control works. Enable GitHub Pages (Settings → Pages → Source: GitHub Actions) and the included workflow publishes it.
 
@@ -25,7 +27,7 @@ python3 -m http.server 8080
 | **People** | two residents: in armchairs by day, in bed at night (both / one / the other), hidden if away |
 | **Mobile** | pan, pinch-zoom, double-tap, wheel; narrow-screen layout starts zoomed in |
 
-Scenes: 4 times of day × 4 seasons = 16 images, crossfaded, all with transparent background so the dashboard colour shows through. The UI text is Russian (labels live at the top of `dist/house3d-card.js`).
+Scenes: 4 times of day × 4 seasons = 16 images, crossfaded, all with transparent background so the dashboard colour shows through. The card UI is available in Russian (default) and English: set `lang: en` in the card config.
 
 ## Install in Home Assistant
 
@@ -41,6 +43,7 @@ views:
     cards:
       - type: custom:house3d-card
         base: /local/house3d/     # where the images live
+        lang: en                  # 'en' or 'ru' (default)
         # auto_path: /my-dash/thermostat   # optional: shows an "Automations" button for admins
 ```
 
