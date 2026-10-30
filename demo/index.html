@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Isometric House Card · live demo</title>
+<style>
+  :root { color-scheme: dark; --bg:#10141d; --panel:#1a2030; --line:#2c3550; --fg:#e6ebf7; --mut:#8c97b3; --acc:#ffc15a; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  header { height:56px; display:flex; align-items:center; gap:12px; padding:0 16px; background:#161c2a; border-bottom:1px solid var(--line); position:relative; z-index:20; }
+  header h1 { font-size:16px; margin:0; font-weight:600; }
+  header .sp { flex:1; }
+  header a, header button { color:var(--fg); background:#242d45; border:1px solid var(--line); border-radius:8px; padding:6px 12px; font:inherit; text-decoration:none; cursor:pointer; }
+  header button:hover, header a:hover { border-color:var(--acc); }
+  house3d-card { display:block; }
+  #drawer { position:fixed; top:56px; right:0; bottom:0; width:min(340px,100%); background:var(--panel); border-left:1px solid var(--line); z-index:30; overflow:auto; padding:14px 16px 28px; transform:translateX(100%); transition:transform .25s; }
+  #drawer.open { transform:none; }
+  #drawer h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--mut); margin:18px 0 8px; }
+  #drawer h2:first-child { margin-top:0; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:7px 0; }
+  .row label { color:var(--fg); }
+  select, input[type=range] { background:#242d45; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:4px 6px; font:inherit; }
+  input[type=range] { padding:0; width:170px; accent-color:var(--acc); }
+  .seg { display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end; }
+  .seg button { background:#242d45; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:4px 9px; font:inherit; cursor:pointer; }
+  .seg button.on { background:var(--acc); color:#1a1a1a; border-color:var(--acc); }
+  .sw { position:relative; width:42px; height:24px; }
+  .sw input { opacity:0; width:0; height:0; }
+  .sw span { position:absolute; inset:0; background:#2c3550; border-radius:99px; transition:.2s; cursor:pointer; }
+  .sw span:before { content:""; position:absolute; left:3px; top:3px; width:18px; height:18px; background:#fff; border-radius:50%; transition:.2s; }
+  .sw input:checked + span { background:var(--acc); }
+  .sw input:checked + span:before { transform:translateX(18px); background:#1a1a1a; }
+  .hint { color:var(--mut); font-size:12px; margin-top:16px; }
+  #toast { position:fixed; left:50%; bottom:22px; transform:translate(-50%,20px); background:#242d45; border:1px solid var(--line); border-radius:10px; padding:8px 14px; opacity:0; transition:.25s; z-index:50; pointer-events:none; }
+  #toast.on { opacity:1; transform:translate(-50%,0); }
+  #hint { position:fixed; left:12px; bottom:12px; z-index:15; max-width:300px; background:rgba(22,28,42,.85); border:1px solid var(--line); border-radius:10px; padding:8px 12px; color:var(--mut); font-size:12px; backdrop-filter:blur(6px); }
+  @media (max-width:700px){ #hint{display:none} header h1{font-size:14px} }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏠 Isometric House Card <span style="color:var(--mut);font-weight:400">· live demo</span></h1>
+  <span class="sp"></span>
+  <a href="https://github.com/" id="gh" target="_blank" rel="noopener">GitHub</a>
+  <button id="toggle">⚙ Эмуляция HA</button>
+</header>
+
+<house3d-card id="card"></house3d-card>
+
+<aside id="drawer"></aside>
+<div id="hint">Тап по лампам, дверце, замку, пылесосу, чипам; тянуть и щипком зумить. Внизу справа шестерёнка карточки переключает превью.</div>
+<div id="toast"></div>
+
+<script>
+/* ---- Shim for Home Assistant's <ha-icon>: renders MDI icons outside HA ---- */
+class HaIcon extends HTMLElement {
+  static get observedAttributes() { return ['icon']; }
+  constructor() { super(); this.attachShadow({ mode: 'open' }); this.shadowRoot.innerHTML =
+    '<style>:host{display:inline-flex;width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px);vertical-align:middle}' +
+    'i{display:block;width:100%;height:100%;background:currentColor;-webkit-mask:var(--m) center/contain no-repeat;mask:var(--m) center/contain no-repeat}</style><i></i>'; }
+  connectedCallback() { this.attributeChangedCallback(); }
+  attributeChangedCallback() {
+    const n = (this.getAttribute('icon') || '').replace(/^mdi:/, ''); if (!n) return;
+    this.shadowRoot.querySelector('i').style.setProperty('--m', `url("https://cdn.jsdelivr.net/npm/@mdi/svg@7.4.47/svg/${n}.svg")`);
+  }
+}
+customElements.define('ha-icon', HaIcon);
+</script>
+<script src="../dist/house3d-card.js"></script>
+<script>
+/* ---- Tiny Home Assistant emulator: states + callService ---- */
+const $ = (s) => document.querySelector(s);
+const card = $('#card');
+card.setConfig({ base: './assets/' });
+
+const S = {}; // entity_id -> {state, attributes}
+const set = (id, state, attributes) => { S[id] = { entity_id: id, state: String(state), attributes: Object.assign({}, S[id] && S[id].attributes, attributes || {}) }; };
+const sim = { hour: null, season: null };           // null = follow real clock
+const nowHour = () => { const d = new Date(); return d.getHours() + d.getMinutes() / 60; };
+
+set('light.floor_lamp', 'on'); set('light.boho_lamp', 'on'); set('light.fireplace_lights', 'on');
+set('media_player.living_room_tv', 'off');
+set('binary_sensor.kitchen_refrigerator_fridge_door', 'off'); set('binary_sensor.kitchen_refrigerator_freezer_door', 'off');
+set('sensor.kitchen_refrigerator_fridge_temperature', 37); set('sensor.kitchen_refrigerator_freezer_temperature', 0);
+set('sensor.garage_washer_machine_state', 'stop'); set('sensor.garage_dryer_machine_state', 'stop');
+set('sensor.garage_washer_completion_time', ''); set('sensor.garage_dryer_completion_time', '');
+set('vacuum.robot_vacuum', 'docked'); set('lock.front_door_lock', 'locked');
+set('person.resident_a', 'home'); set('person.resident_b', 'home');
+set('climate.thermostat', 'cool', { hvac_action: 'cooling', current_temperature: 74, temperature: 72, min_temp: 50, max_temp: 90, hvac_modes: ['off', 'heat', 'cool'] });
+set('sensor.thermostat_indoor_temperature', 74); set('sensor.thermostat_outdoor_temperature', 81);
+set('input_select.thermo_situation', 'Дома', { options: ['Никого нет', 'Дома', 'Сон'] });
+set('input_boolean.thermo_auto', 'on');
+set('weather.forecast_home', 'sunny', { temperature: 81, wind_speed: 5 });
+set('sun.sun', 'above_horizon', { elevation: 40, rising: false });
+
+function refreshSun() {
+  const h = sim.hour ?? nowHour();
+  const el = 52 * Math.sin(Math.PI * (h - 6) / 12) - 4;      // crude sun curve: dawn ~6h, sunset ~18h
+  set('sun.sun', el > 0 ? 'above_horizon' : 'below_horizon', { elevation: el, rising: h < 12 });
+}
+function climateTick() {
+  const c = S['climate.thermostat'], a = c.attributes;
+  if (c.state === 'off') a.hvac_action = 'off';
+  else if (c.state === 'cool') a.hvac_action = a.current_temperature > a.temperature ? 'cooling' : 'idle';
+  else a.hvac_action = a.current_temperature < a.temperature ? 'heating' : 'idle';
+}
+function push() {
+  refreshSun(); climateTick();
+  const states = JSON.parse(JSON.stringify(S));
+  card._ov = card._ov || {};
+  card._ov.season = sim.season || undefined;
+  card.hass = { states, user: { is_admin: false }, callService: callService };
+  renderDrawer();
+}
+const sleepers = {};
+function later(key, ms, fn) { clearTimeout(sleepers[key]); sleepers[key] = setTimeout(fn, ms); }
+
+function callService(domain, service, data) {
+  const id = data.entity_id, e = S[id];
+  const log = (m) => toast(`${domain}.${service}${id ? ' → ' + id.split('.')[1] : ''}${m ? ' ' + m : ''}`);
+  if (domain === 'light' && service === 'toggle') set(id, e.state === 'on' ? 'off' : 'on');
+  else if (domain === 'lock') { set(id, 'locking'); push(); later('lock', 700, () => { set(id, service === 'lock' ? 'locked' : 'unlocked'); push(); }); log(); return; }
+  else if (domain === 'vacuum') {
+    if (service === 'start') { set(id, 'cleaning'); later('vac', 15000, () => { set(id, 'returning'); push(); later('vac', 4000, () => { set(id, 'docked'); push(); }); }); }
+    else { set(id, 'returning'); later('vac', 4000, () => { set(id, 'docked'); push(); }); }
+  }
+  else if (domain === 'climate' && service === 'set_temperature') e.attributes.temperature = data.temperature;
+  else if (domain === 'climate' && service === 'set_hvac_mode') set(id, data.hvac_mode);
+  else if (domain === 'input_select') set(id, data.option);
+  else if (domain === 'input_boolean') set(id, e.state === 'on' ? 'off' : 'on');
+  log(); push();
+}
+
+card.addEventListener('hass-more-info', (e) => toast('more-info: ' + e.detail.entityId + ' (в реальном HA откроется диалог)'));
+let tt; function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('on'), 2200); }
+
+/* ---- Control drawer ---- */
+const DEMO_WEATHER = { sunny: ['Солнечно', 'sunny'], cloudy: ['Облачно', 'cloudy'], rain: ['Дождь', 'rainy'], wind: ['Ветер', 'windy'], snow: ['Снег', 'snowy'] };
+const DEMO_SEASONS = { '': 'Авто', winter: 'Зима', spring: 'Весна', summer: 'Лето', autumn: 'Осень' };
+function sw(id, on) { return `<span class="sw"><input type="checkbox" data-sw="${id}" ${on ? 'checked' : ''}><span></span></span>`; }
+function renderDrawer() {
+  const d = $('#drawer'); if (d.contains(document.activeElement) && document.activeElement.type === 'range') return;
+  const h = sim.hour ?? nowHour(), curW = Object.keys(DEMO_WEATHER).find(k => DEMO_WEATHER[k][1] === S['weather.forecast_home'].state) || 'sunny';
+  const w = S['sensor.garage_washer_machine_state'].state === 'run', dr = S['sensor.garage_dryer_machine_state'].state === 'run';
+  d.innerHTML = `
+  <h2>Время и погода</h2>
+  <div class="row"><label>Время суток</label><span class="seg"><button data-hr="auto" class="${sim.hour == null ? 'on' : ''}">Сейчас</button></span></div>
+  <div class="row"><input type="range" id="hr" min="0" max="23.5" step="0.5" value="${h}"><span id="hrv">${String(Math.floor(h)).padStart(2, '0')}:${h % 1 ? '30' : '00'}</span></div>
+  <div class="row"><label>Сезон</label><select id="season">${Object.entries(DEMO_SEASONS).map(([k, v]) => `<option value="${k}" ${(sim.season || '') === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+  <div class="row"><label>Погода</label><select id="weather">${Object.entries(DEMO_WEATHER).map(([k, v]) => `<option value="${k}" ${curW === k ? 'selected' : ''}>${v[0]}</option>`).join('')}</select></div>
+  <h2>Кто дома</h2>
+  <div class="row"><label>Он</label>${sw('person.resident_a', S['person.resident_a'].state === 'home')}</div>
+  <div class="row"><label>Она</label>${sw('person.resident_b', S['person.resident_b'].state === 'home')}</div>
+  <div class="hint">Днём фигурки сидят в креслах, ночью лежат в кровати, если никого нет — их не видно.</div>
+  <h2>Устройства</h2>
+  <div class="row"><label>ТВ</label>${sw('media_player.living_room_tv', S['media_player.living_room_tv'].state === 'on')}</div>
+  <div class="row"><label>Дверца холодильника</label>${sw('binary_sensor.kitchen_refrigerator_fridge_door', S['binary_sensor.kitchen_refrigerator_fridge_door'].state === 'on')}</div>
+  <div class="row"><label>Морозилка</label>${sw('binary_sensor.kitchen_refrigerator_freezer_door', S['binary_sensor.kitchen_refrigerator_freezer_door'].state === 'on')}</div>
+  <div class="row"><label>Стиралка работает</label>${sw('washer', w)}</div>
+  <div class="row"><label>Сушилка работает</label>${sw('dryer', dr)}</div>
+  <div class="row"><label>Пылесос</label><span class="seg"><button data-vac="docked" class="${S['vacuum.robot_vacuum'].state === 'docked' ? 'on' : ''}">База</button><button data-vac="cleaning" class="${S['vacuum.robot_vacuum'].state === 'cleaning' ? 'on' : ''}">Уборка</button><button data-vac="error" class="${S['vacuum.robot_vacuum'].state === 'error' ? 'on' : ''}">Ошибка</button></span></div>
+  <div class="row"><label>Замок</label><span class="seg"><button data-lock="locked" class="${S['lock.front_door_lock'].state === 'locked' ? 'on' : ''}">Закрыт</button><button data-lock="unlocked" class="${S['lock.front_door_lock'].state === 'unlocked' ? 'on' : ''}">Открыт</button></span></div>
+  <h2>Климат</h2>
+  <div class="row"><label>На улице, °F</label><input type="range" id="out" min="-10" max="110" value="${S['sensor.thermostat_outdoor_temperature'].state}"><span>${S['sensor.thermostat_outdoor_temperature'].state}°</span></div>
+  <div class="row"><label>В доме, °F</label><input type="range" id="in" min="50" max="90" value="${S['climate.thermostat'].attributes.current_temperature}"><span>${S['climate.thermostat'].attributes.current_temperature}°</span></div>
+  <div class="hint">Всё это эмуляция в браузере: никаких запросов к реальному Home Assistant. Сервисы (свет, замок, термостат, пылесос) меняют состояние как в настоящей системе.</div>`;
+}
+$('#drawer').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.hr === 'auto') sim.hour = null;
+  if (b.dataset.vac) { const v = b.dataset.vac; clearTimeout(sleepers.vac); set('vacuum.robot_vacuum', v); }
+  if (b.dataset.lock) set('lock.front_door_lock', b.dataset.lock);
+  push();
+});
+$('#drawer').addEventListener('input', (e) => {
+  const t = e.target;
+  if (t.id === 'hr') { sim.hour = Number(t.value); $('#hrv').textContent = String(Math.floor(sim.hour)).padStart(2, '0') + ':' + (sim.hour % 1 ? '30' : '00'); refreshSun(); push(); }
+  if (t.id === 'out') { set('sensor.thermostat_outdoor_temperature', t.value); S['weather.forecast_home'].attributes.temperature = Number(t.value); push(); }
+  if (t.id === 'in') { S['climate.thermostat'].attributes.current_temperature = Number(t.value); set('sensor.thermostat_indoor_temperature', t.value); push(); }
+});
+$('#drawer').addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.id === 'season') sim.season = t.value || null;
+  if (t.id === 'weather') set('weather.forecast_home', DEMO_WEATHER[t.value][1]);
+  if (t.dataset.sw) {
+    const id = t.dataset.sw, on = t.checked;
+    if (id.startsWith('person.')) set(id, on ? 'home' : 'not_home');
+    else if (id.startsWith('media_player')) set(id, on ? 'on' : 'off');
+    else if (id.startsWith('binary_sensor')) set(id, on ? 'on' : 'off');
+    else { const k = id; set(`sensor.garage_${k}_machine_state`, on ? 'run' : 'stop'); set(`sensor.garage_${k}_completion_time`, on ? new Date(Date.now() + (k === 'washer' ? 47 : 83) * 60000).toISOString() : ''); }
+  }
+  push();
+});
+$('#toggle').onclick = () => $('#drawer').classList.toggle('open');
+
+push();
+setInterval(() => { if (sim.hour == null) push(); }, 60000);   // follow the real clock
+setInterval(() => push(), 30000);                              // refresh timers ("ещё 47 мин")
+</script>
+</body>
+</html>
