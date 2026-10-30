@@ -4,7 +4,9 @@ A stylish **3D isometric floor plan** dashboard card for Home Assistant. The hou
 
 ![night scene](docs/screenshot-night.png)
 
-**Live demo (no Home Assistant needed):** `demo/` — the page ships a tiny in-browser Home Assistant emulator, so every control works. Enable GitHub Pages (Settings → Pages → Source: GitHub Actions) and the included workflow publishes it.
+**▶ Live demo: https://skazo4nik.github.io/ha-isometric-house-card/** (no Home Assistant needed)
+
+Source of the demo: `demo/` — the page ships a tiny in-browser Home Assistant emulator, so every control works. Enable GitHub Pages (Settings → Pages → Source: GitHub Actions) and the included workflow publishes it.
 
 Run it locally:
 
